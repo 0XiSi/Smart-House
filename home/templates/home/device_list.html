@@ -1,0 +1,407 @@
+{% extends 'base/base.html' %}
+{% load rest_framework %}
+{% load static %}
+
+{% block title %}
+    Relay list
+{% endblock title %}
+
+{% block content %}
+<body>
+    <div class="container">
+        <div class="d-flex p-2 mx-auto">
+            <div  class="card">
+                <div class="card-body">
+                <p class="text-light" style="font-weight: bold">Relays</p>
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">State</th>
+                                <th scope="col">Mac Adress</th>
+                                <th scope="col">Toggle</th>
+    {#                            <th scope="col">Edit</th>#}
+                                <th scope="col">Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                        {% for relay in relays %}
+
+                                <th scope="row">{{ forloop.counter }}</th>
+                                <td>{{ relay.name }}</td>
+                                <td>
+                                    {% if relay.state %}
+                                        <svg id="relay_{{ relay.mac_addr }}" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
+                                            <circle r="10" cx="10" cy="10" fill="lime"></circle>
+                                        </svg>
+                                    {% else %}
+                                        <svg id="relay_{{ relay.mac_addr }}" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
+                                            <circle r="10" cx="10" cy="10" fill="gray"></circle>
+                                        </svg>
+                                    {% endif %}
+                                </td>
+
+                                <td>{{ relay.mac_addr }}</td>
+                                <td><a href="" type="button" class="btn btn-success toggle" relay="{{ relay }}" relay-id="{{ relay.id }}">Toggle</a></td>
+    {#                            <td><a href="{% url 'home:edit_relay' relay.mac_addr %}" type="button" class="btn btn-primary">Edit</a></td>#}
+                                <td><button type="button" class="btn btn-danger del" relay-id="{{ relay.id }}">Delete</button></td>
+
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    <div id="addRelayModal" class="modal fade" tabindex="-1" aria-labelledby="addRelayModalLabel" aria-hidden="true">
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h5 class="modal-title" id="addRelayModalLabel">Add Relay</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                          </div>
+                          <div class="modal-body">
+                            <!-- Form for adding a relay -->
+                            <form id="addRelayForm">
+                                {% csrf_token %}
+                              <div class="mb-3">
+                                <label for="relayName" class="form-label">Name</label>
+                                <input type="text" class="form-control" id="relayName" required>
+                              </div>
+                              <div class="mb-3">
+                                <label for="relayMacAddress" class="form-label">Mac Address</label>
+                                <input type="text" class="form-control" id="relayMacAddress" required maxlength="12" minlength="12">
+                              </div>
+                              <input type="hidden" id="userId" value="{{ request.user.id }}">
+                              <button type="submit" class="btn btn-primary">Add</button>
+                            </form>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Button to trigger the modal -->
+                    <a href="#" id="addRelayBtn" type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRelayModal">Add</a>
+                    <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                            const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+                            const socket = new WebSocket(`${wsScheme}://${window.location.host}/ws/relay_updates/`);
+                            {# ADD DAPHNE IN INSTALLED APPS YOU FOOL #}
+
+                            {#socket.onopen = function(event) {#}
+                            {#    console.log('WebSocket connection opened successfully.');#}
+                            //};
+
+                            socket.onmessage = function(event) {
+                                {#console.log('Received WebSocket message:', event.data);#}
+                                const data = JSON.parse(event.data);
+                                const relayId = "relay_" + data.mac_addr;
+                                const circle = document.getElementById(relayId);
+                                if (circle) {
+                                    if (data.state === "True") {
+                                        circle.querySelector("circle").setAttribute("fill", "lime");
+                                    } else if (data.state === "False") {
+                                        circle.querySelector("circle").setAttribute("fill", "gray");
+                                    }
+
+                                    {#console.log('Circle updated successfully.');#}
+                                    {#console.log(circle.querySelector("circle").getAttribute("fill"))#}
+                                    {#console.log(data.state)#}
+                                } else {
+                                    {#console.log('Circle element not found for relay ID:', relayId);#}
+                                }
+                            };
+
+                            socket.onclose = function(event) {
+                                {#console.log('WebSocket connection closed.');#}
+                            };
+
+                            socket.onerror = function(error) {
+                                console.error('WebSocket error:', error);
+                            };
+
+                            // Add event listeners for toggle buttons
+                            const toggleButtons = document.querySelectorAll('.toggle-btn');
+                            toggleButtons.forEach(function(button) {
+                                button.addEventListener('click', function(event) {
+                                    const macAddr = event.target.dataset.mac;
+                                    // Send toggle request to server
+                                    // Example: You might want to send an AJAX request to toggle the relay state
+                                    {#console.log('Toggling relay with MAC address:', macAddr);#}
+                                });
+                            });
+                        });
+                    // Add event listener to all delete buttons
+                    var deleteButtons = document.querySelectorAll('.del');
+                    deleteButtons.forEach(function(button) {
+                        button.addEventListener('click', function() {
+                            var relayId = this.getAttribute('relay-id');
+
+                            var xhr = new XMLHttpRequest();
+                            xhr.open("DELETE", "/relay/" + relayId, true);
+                            xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken')); // Include CSRF token
+                            xhr.onload = function () {
+                                if (xhr.status === 204) {
+                                    window.location.reload();
+                                    // You can redirect the user or perform any other action here
+                                } else {
+                                    alert("Failed to delete relay.");
+                                }
+                            };
+                            xhr.send();
+
+                        });
+                    });
+
+                    var toggleButtons = document.querySelectorAll('.toggle');
+                    toggleButtons.forEach(function(button) {
+                        button.addEventListener('click', function() {
+                            var relayId = this.getAttribute('relay-id');
+                            var relay = this.getAttribute('relay');
+                            console.log(relay);
+                            var keyValuePairs = relay.split('/');
+                            var parsedObject = {};
+                            keyValuePairs.forEach(function(pair) {
+                                // Split the pair by ":"
+                                var parts = pair.trim().split(':');
+                                var key = parts[0].trim(); // Key
+                                var value = parts[1].trim(); // Value
+
+                                // If the value is "True" or "False", convert it to a boolean
+                                if (value === 'True') {
+                                    value = true;
+                                } else if (value === 'False') {
+                                    value = false;
+                                }
+
+                                // Add the key-value pair to the parsed object
+                                parsedObject[key] = value;
+                            });
+                            var xhr = new XMLHttpRequest();
+                            xhr.open("PUT", "/relay/" + relayId, true);
+                            xhr.setRequestHeader("Content-Type", "application/json");
+                            xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
+                            xhr.onload = function () {
+                                if (xhr.status === 202) {
+                                    window.location.reload();
+                                    // You can redirect the user or perform any other action here
+                                } else {
+                                    alert("Failed to toggle relay.");
+                                }
+                            };
+                            console.log(parsedObject)
+                            xhr.send(JSON.stringify({name: parsedObject['Name'], mac_addr: parsedObject['Mac'], state: (!parsedObject['On']), user: relay.user}));
+
+                        });
+                    });
+
+                    document.getElementById('addRelayForm').addEventListener('submit', function(event) {
+                        event.preventDefault();
+
+                        // Retrieve data from form
+                        var relayName = document.getElementById('relayName').value;
+                        var relayMacAddress = document.getElementById('relayMacAddress').value;
+                        var userId = parseInt(document.getElementById('userId').value);
+                        console.log(userId)
+
+                        // Send data via XMLHttpRequest (similar to your delete function)
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("POST", "/add_relay/", true); // Modify URL as needed
+                        xhr.setRequestHeader("Content-Type", "application/json");
+                        xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken')); // Include CSRF token
+
+                        xhr.onload = function() {
+                          if (xhr.status === 201) {
+                            // Relay added successfully
+                            window.location.reload(); // Refresh page or update relay list
+                          } else {
+                            alert("Failed to add relay.");
+                          }
+                        };
+
+                        xhr.send(JSON.stringify({ name: relayName, mac_addr: relayMacAddress, state: "False", user_id: {{ request.user.id }} }));
+                    });
+                    function getCookie(name) {
+                        var cookieValue = null;
+                        if (document.cookie && document.cookie !== '') {
+                            var cookies = document.cookie.split(';');
+                            for (var i = 0; i < cookies.length; i++) {
+                                var cookie = cookies[i].trim();
+                                // Does this cookie string begin with the name we want?
+                                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                    break;
+                                }
+                            }
+                        }
+                        return cookieValue;
+                    }
+                </script>
+                </div>
+            </div>
+        </div>
+        <div class="d-flex p-2 mx-auto">
+        <div  class="card">
+            <div class="card-body">
+            <p class="text-light" style="font-weight: bold">Sensors</p>
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Name</th>
+                            <th scope="col">Temp</th>
+                            <th scope="col">Humidity</th>
+                            <th scope="col">Mac Adress</th>
+                            <th scope="col">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for sensor in dh11s %}
+                        <tr>
+                            <th scope="row">{{ forloop.counter }}</th>
+                            <td>{{ sensor.name }}</td>
+                            <style>
+                              .badgee {
+                                display: inline-block;
+                                padding: 5px 10px;
+                                background-color: #b169ff;
+                                color: white;
+                                font-family: Arial, sans-serif;
+                                font-size: 14px;
+                                border-radius: 5px;
+                              }
+                            </style>
+                            <td><span class="badgee" id="temp_{{ sensor.mac_addr }}">{{ sensor.temp }}°C</span></td>
+                            <td><span class="badgee" id="humidity_{{ sensor.mac_addr }}">{{ sensor.humidity }}%</span></td>
+                            <td>{{ sensor.mac_addr }}</td>
+                            <td>
+                            <button type="button" class="delete-btn btn btn-danger" data-id="{{ sensor.id }}">Delete</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <div id="addDH11Modal" class="modal fade" tabindex="-1" aria-labelledby="addDH11ModalLabel" aria-hidden="true">
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h5 class="modal-title" id="addDH11ModalLabel">Add Sensor</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                          </div>
+                          <div class="modal-body">
+                            <!-- Form for adding a relay -->
+                            <form id="addDH11Form">
+                                {% csrf_token %}
+                              <div class="mb-3">
+                                <label for="DH11Name" class="form-label">Name</label>
+                                <input type="text" class="form-control" id="DH11Name" required>
+                              </div>
+                              <div class="mb-3">
+                                <label for="DH11MacAddress" class="form-label">Mac Address</label>
+                                <input type="text" class="form-control" id="DH11MacAddress" required maxlength="12" minlength="12">
+                              </div>
+                              <input type="hidden" id="userId" value="{{ request.user.id }}">
+                              <button type="submit" class="btn btn-primary">Add</button>
+                            </form>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                <!-- Button to trigger the modal -->
+                <a href="#" id="addDH11Btn" type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDH11Modal">Add</a>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+                        const socket = new WebSocket(`${wsScheme}://${window.location.host}/ws/sensor_updates/`);
+                        {# ADD DAPHNE TO THE INSTALLED APPS YOU FOOL #}
+
+                        socket.onmessage = function(event) {
+                            const data = JSON.parse(event.data);
+                            const tempId = "temp_" + data.mac_addr;
+                            const humidityId = "humidity_" + data.mac_addr;
+                            const temp_label = document.getElementById(tempId);
+                            const humidity_label = document.getElementById(humidityId);
+                            if (temp_label && humidity_label) {
+                                temp_label.innerText = data.temperature + "°C";
+                                humidity_label.innerText = data.humidity + "%";
+                            }
+                        };
+
+                        socket.onclose = function(event) {
+                            console.log('WebSocket connection closed.');
+                        };
+
+                        socket.onerror = function(error) {
+                            console.error('WebSocket error:', error);
+                        };
+                    });
+                    // Add event listener to all delete buttons
+                    var deleteButtons = document.querySelectorAll('.delete-btn');
+                    deleteButtons.forEach(function(button) {
+                        button.addEventListener('click', function() {
+                            var dh11Id = this.getAttribute('data-id');
+
+                            var xhr = new XMLHttpRequest();
+                            xhr.open("DELETE", "/dh11/" + dh11Id, true);
+                            xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken')); // Include CSRF token
+                            xhr.onload = function () {
+                                if (xhr.status === 204) {
+                                    window.location.reload();
+                                    // You can redirect the user or perform any other action here
+                                } else {
+                                    alert("Failed to delete DH11 data.");
+                                }
+                            };
+                            xhr.send();
+
+                        });
+                    });
+
+                    document.getElementById('addDH11Form').addEventListener('submit', function(event) {
+                        event.preventDefault();
+
+                        // Retrieve data from form
+                        var dh11Name = document.getElementById('DH11Name').value;
+                        var dh11MacAddress = document.getElementById('DH11MacAddress').value;
+                        var userId = parseInt(document.getElementById('userId').value);
+                        console.log(userId)
+
+                        // Send data via XMLHttpRequest (similar to your delete function)
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("POST", "/add_dh11/", true); // Modify URL as needed
+                        xhr.setRequestHeader("Content-Type", "application/json");
+                        xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken')); // Include CSRF token
+
+                        xhr.onload = function() {
+                          if (xhr.status === 201) {
+                            // Relay added successfully
+                            window.location.reload(); // Refresh page or update dh11 list
+                          } else {
+                            alert("Failed to add dh11.");
+                          }
+                        };
+
+                        xhr.send(JSON.stringify({ name: dh11Name, mac_addr: dh11MacAddress, temp: null, humidity: null, user_id: {{ request.user.id }} }));
+                    });
+                    function getCookie(name) {
+                        var cookieValue = null;
+                        if (document.cookie && document.cookie !== '') {
+                            var cookies = document.cookie.split(';');
+                            for (var i = 0; i < cookies.length; i++) {
+                                var cookie = cookies[i].trim();
+                                // Does this cookie string begin with the name we want?
+                                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                    break;
+                                }
+                            }
+                        }
+                        return cookieValue;
+                    }
+                </script>
+            </div>
+        </div>
+    </div>
+    </div>
+</body>
+{% endblock content %}

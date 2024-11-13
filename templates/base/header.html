@@ -1,0 +1,26 @@
+<header class="d-flex align-items-center justify-content-between p-3">
+  <div>
+    {% now "d/m/Y - H:i" %}
+    <strong>{% if request.user.is_authenticated %}Hello {{ request.user }}{% else %}<a href="{% url 'accounts:user_signin' %}" class="btn btn-secondary" style="margin-left: 10px">Signin</a>{% endif %}</strong>
+  </div>
+  <button style="margin-left: auto" class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarHeader" aria-controls="navbarHeader" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+</header>
+
+<div class="collapse" id="navbarHeader">
+  <div class="container">
+    {% if request.user.is_authenticated %}
+    <ul class="list-unstyled d-flex flex-column gap-2 pt-3">
+
+            <li>
+                <a href="{% url 'accounts:user_signout' %}" class="btn btn-primary mb-3">Sign out</a>
+            </li>
+            <li>
+                <a href="{% url 'home:device_list' %}" class="btn btn-primary mb-3">Device list</a>
+            </li>
+
+    </ul>
+    {% endif %}
+  </div>
+</div>
